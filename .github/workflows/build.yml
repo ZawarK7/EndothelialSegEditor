@@ -1,0 +1,54 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-13
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyinstaller
+          pip install pyqt5
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install opencv-python-headless
+          pip install matplotlib scikit-image scipy numpy
+          pip install gdown
+
+      - name: Download model from Google Drive
+        run: |
+          mkdir -p checkpoints
+          gdown "Y1o-DNbDfYX_wLI9FoLVczxNTrC6BH842l" -O checkpoints/best_model.pth
+          echo "Model size: $(du -sh checkpoints/best_model.pth)"
+
+      - name: Build macOS .app
+        run: |
+          pyinstaller --noconfirm --clean --windowed \
+            --name EndothelialSegEditor \
+            --add-data "checkpoints/best_model.pth:checkpoints" \
+            app.py
+
+      - name: Zip the .app
+        run: |
+          cd dist
+          zip -r EndothelialSegEditor-macOS.zip EndothelialSegEditor.app
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EndothelialSegEditor-macOS
+          path: dist/EndothelialSegEditor-macOS.zip
+          retention-days: 30
